@@ -1,5 +1,6 @@
 BIN_IMAGE = blockbook-build
 DEB_IMAGE = blockbook-build-deb
+GUARDA_IMAGE = blockbook-build-guarda
 PACKAGER = $(shell id -u):$(shell id -g)
 NO_CACHE = false
 UPDATE_VENDOR = 1
@@ -35,6 +36,21 @@ deb-%: .deb-image
 
 deb-blockbook-all: clean-deb $(addprefix deb-blockbook-, $(TARGETS))
 
+build-guarda: .guarda-image
+	docker run -t --rm -e PACKAGER=$(PACKAGER) -v "$(CURDIR):/src" -v "$(CURDIR)/build:/out" $(GUARDA_IMAGE) make build ARGS="$(ARGS)"
+
+build-guarda-debug: .guarda-image
+	docker run -t --rm -e PACKAGER=$(PACKAGER) -v "$(CURDIR):/src" -v "$(CURDIR)/build:/out" $(GUARDA_IMAGE) make build-debug ARGS="$(ARGS)"
+
+test-guarda: .guarda-image
+	docker run -t --rm -e PACKAGER=$(PACKAGER) -v "$(CURDIR):/src" --network="host" $(BIN_IMAGE) make test ARGS="$(ARGS)"
+
+test-guarda-integration: .guarda-image
+	docker run -t --rm -e PACKAGER=$(PACKAGER) -v "$(CURDIR):/src" --network="host" $(BIN_IMAGE) make test-integration ARGS="$(ARGS)"
+
+test-guarda-all: .guarda-image
+	docker run -t --rm -e PACKAGER=$(PACKAGER) -v "$(CURDIR):/src" --network="host" $(BIN_IMAGE) make test-all ARGS="$(ARGS)"
+
 $(addprefix all-, $(TARGETS)): all-%: clean-deb build-images deb-%
 
 all: clean-deb build-images $(addprefix deb-, $(TARGETS))
@@ -56,6 +72,14 @@ build-images: clean-images
 		docker build --no-cache=$(NO_CACHE) -t $(DEB_IMAGE) build/docker/deb; \
 	else \
 		echo "Image $(DEB_IMAGE) is up to date"; \
+	fi
+
+.guarda-image:
+	@if [ $$(build/tools/image_status.sh $(GUARDA_IMAGE):latest build/docker) != "ok" ]; then \
+		echo "Building image $(GUARDA_IMAGE)..."; \
+		docker build --no-cache=$(NO_CACHE) -t $(GUARDA_IMAGE) build/docker/guarda; \
+	else \
+		echo "Image $(GUARDA_IMAGE) is up to date"; \
 	fi
 
 clean: clean-bin clean-deb
