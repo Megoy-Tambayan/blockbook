@@ -872,6 +872,28 @@ func (w *Worker) getAddrDescAndNormalizeAddress(address string) (bchain.AddressD
 	return addrDesc, address, nil
 }
 
+func isOwnAddress(address string, addresses []string) bool {
+	if len(addresses) == 1 {
+		return address == addresses[0]
+	}
+	return false
+}
+
+func setIsOwnAddress(tx *Tx, address string) {
+	for j := range tx.Vin {
+		vin := &tx.Vin[j]
+		if isOwnAddress(address, vin.Addresses) {
+			vin.IsOwn = true
+		}
+	}
+	for j := range tx.Vout {
+		vout := &tx.Vout[j]
+		if isOwnAddress(address, vout.Addresses) {
+			vout.IsOwn = true
+		}
+	}
+}
+
 // GetAddress computes address value and gets transactions for given address
 func (w *Worker) GetAddress(address string, page int, txsOnPage int, option AccountDetails, filter *AddressFilter) (*Address, error) {
 	glog.Info(option)
@@ -952,6 +974,7 @@ func (w *Worker) GetAddress(address string, page int, txsOnPage int, option Acco
 						if option == AccountDetailsTxidHistory {
 							txids = append(txids, tx.Txid)
 						} else if option >= AccountDetailsTxHistoryLight {
+							setIsOwnAddress(tx, address)
 							txs = append(txs, tx)
 						}
 					}
@@ -987,6 +1010,7 @@ func (w *Worker) GetAddress(address string, page int, txsOnPage int, option Acco
 				if err != nil {
 					return nil, err
 				}
+				setIsOwnAddress(tx, address)
 				txs = append(txs, tx)
 			}
 		}

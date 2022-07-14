@@ -56,6 +56,8 @@ type PublicServer struct {
 	debug            bool
 }
 
+var hostURL string = ""
+
 // NewPublicServer creates new public server http interface to blockbook and returns its handle
 // only basic functionality is mapped, to map all functions, call
 func NewPublicServer(binding string, certFiles string, db *db.RocksDB, chain bchain.BlockChain, mempool bchain.Mempool, txCache *db.TxCache, explorerURL string, metrics *common.Metrics, is *common.InternalState, debugMode bool) (*PublicServer, error) {
@@ -104,6 +106,7 @@ func NewPublicServer(binding string, certFiles string, db *db.RocksDB, chain bch
 
 	// map only basic functions, the rest is enabled by method MapFullPublicInterface
 	serveMux.Handle(path+"favicon.ico", http.FileServer(http.Dir("./static/")))
+	serveMux.Handle(path+"robots.txt", http.FileServer(http.Dir("./static/")))
 	serveMux.Handle(path+"static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static/"))))
 	// default handler
 	serveMux.HandleFunc(path, s.htmlTemplateHandler(s.explorerIndex))
@@ -260,6 +263,11 @@ func joinURL(base string, part string) string {
 	return part
 }
 
+func getHostURL() string {
+	glog.Info("Server request host: ", hostURL)
+	return hostURL
+}
+
 func getFunctionName(i interface{}) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
@@ -336,6 +344,7 @@ func (s *PublicServer) newTemplateDataWithError(text string) *TemplateData {
 
 func (s *PublicServer) htmlTemplateHandler(handler func(w http.ResponseWriter, r *http.Request) (tpl, *TemplateData, error)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		hostURL = r.Host + r.URL.Path
 		var t tpl
 		var data *TemplateData
 		var err error
@@ -441,8 +450,12 @@ func (s *PublicServer) parseTemplates() []*template.Template {
 		"formatAmount":             s.formatAmount,
 		"formatAmountWithDecimals": formatAmountWithDecimals,
 		"setTxToTemplateData":      setTxToTemplateData,
-		"isOwnAddress":             isOwnAddress,
-		"isOwnAddresses":           isOwnAddresses,
+		"toJSON":                   toJSON,
+		"addressEquals":            addressEquals,
+		"ToUpper":                  strings.ToUpper,
+		"ToLower":                  strings.ToLower,
+		"normalizeName":            normalizeName,
+		"getHostURL":               getHostURL,
 	}
 	var createTemplate func(filenames ...string) *template.Template
 	if s.debug {
@@ -532,27 +545,22 @@ func setTxToTemplateData(td *TemplateData, tx *api.Tx) *TemplateData {
 	return td
 }
 
-// returns true if address is "own",
-// i.e. either the address of the address detail or belonging to the xpub
-func isOwnAddress(td *TemplateData, a string) bool {
-	if a == td.AddrStr {
-		return true
+func toJSON(data interface{}) string {
+	json, err := json.Marshal(data)
+	if err != nil {
+		return ""
 	}
-	if td.Address != nil && td.Address.XPubAddresses != nil {
-		if _, found := td.Address.XPubAddresses[a]; found {
-			return true
-		}
-	}
-	return false
+	return string(json)
 }
 
-// returns true if addresses are "own",
-// i.e. either the address of the address detail or belonging to the xpub
-func isOwnAddresses(td *TemplateData, addresses []string) bool {
-	if len(addresses) == 1 {
-		return isOwnAddress(td, addresses[0])
-	}
-	return false
+func addressEquals(addresses []string, value string) bool {
+	return len(addresses) == 1 && addresses[0] == value
+}
+
+func normalizeName(s string) string {
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, " ", "-")
+	return s
 }
 
 func (s *PublicServer) explorerTx(w http.ResponseWriter, r *http.Request) (tpl, *TemplateData, error) {

@@ -269,6 +269,33 @@ func evictXpubCacheItems() {
 	glog.Info("Evicted ", count, " items from xpub cache, oldest item accessed at ", time.Unix(oldest, 0), ", cache size ", len(cachedXpubs))
 }
 
+// returns true if addresses are "own", i.e. the address belongs to the xpub
+func isOwnAddresses(xpubAddresses map[string]struct{}, addresses []string) bool {
+	if len(addresses) == 1 {
+		_, found := xpubAddresses[addresses[0]]
+		return found
+	}
+	return false
+}
+
+func setIsOwnAddresses(txs []*Tx, xpubAddresses map[string]struct{}) {
+	for i := range txs {
+		tx := txs[i]
+		for j := range tx.Vin {
+			vin := &tx.Vin[j]
+			if isOwnAddresses(xpubAddresses, vin.Addresses) {
+				vin.IsOwn = true
+			}
+		}
+		for j := range tx.Vout {
+			vout := &tx.Vout[j]
+			if isOwnAddresses(xpubAddresses, vout.Addresses) {
+				vout.IsOwn = true
+			}
+		}
+	}
+}
+
 func (w *Worker) getXpubData(xpub string, page int, txsOnPage int, option AccountDetails, filter *AddressFilter, gap int) (*xpubData, uint32, error) {
 	if w.chainType != bchain.ChainBitcoinType {
 		return nil, 0, ErrUnsupportedXpub
@@ -527,6 +554,7 @@ func (w *Worker) GetXpubAddress(xpub string, page int, txsOnPage int, option Acc
 			}
 		}
 	}
+	setIsOwnAddresses(txs, xpubAddresses)
 	var totalReceived big.Int
 	totalReceived.Add(&data.balanceSat, &data.sentSat)
 	addr := Address{

@@ -33,7 +33,12 @@ RUN strip /opt/rocksdb/ldb /opt/rocksdb/sst_dump && \
     cp /opt/rocksdb/ldb /opt/rocksdb/sst_dump /build
 
 # install build tools
-RUN go get github.com/gobuffalo/packr/...
+RUN go get -v github.com/gobuffalo/packr/... && \
+    cd $GOPATH/src/github.com/gobuffalo/packr/ && \
+    git checkout tags/v1.13.7 && \
+    make
+#    exit 1
+##    cp ./packr /usr/bin/
 
 # download pre-loaded depencencies
 RUN \
