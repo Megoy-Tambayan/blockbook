@@ -77,7 +77,7 @@
             <div class="row tx-in">
                 <table class="table data-table">
                     <tbody>
-                        <tr{{if isOwnAddress $data $erc20.From}} class="tx-own"{{end}}>
+                        <tr{{if eq $erc20.From $addr}} class="tx-own"{{end}}>
                             <td>
                                 <span class="ellipsis tx-addr">{{if ne $erc20.From $addr}}<a href="/address/{{$erc20.From}}">{{$erc20.From}}</a>{{else}}{{$erc20.From}}{{end}}</span>
                             </td>
@@ -95,7 +95,7 @@
             <div class="row tx-out">
                 <table class="table data-table">
                     <tbody>
-                        <tr{{if isOwnAddress $data $erc20.To}} class="tx-own"{{end}}>
+                        <tr{{if eq $erc20.To $addr}} class="tx-own"{{end}}>
                             <td>
                                 <span class="ellipsis tx-addr">{{if ne $erc20.To $addr}}<a href="/address/{{$erc20.To}}">{{$erc20.To}}</a>{{else}}{{$erc20.To}}{{end}}</span>
                             </td>
